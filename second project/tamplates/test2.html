@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance System</title>
+<style>
+  body{font-family:Arial;background:#f4f4f4;margin:0;padding:0}
+  .box{max-width:800px;margin:20px auto;padding:20px;background:#fff;border-radius:8px;box-shadow:0 0 8px #aaa}
+  h2{text-align:center}
+  input,select,button{padding:8px;margin:5px 0;border:1px solid #ccc;border-radius:5px}
+  button{cursor:pointer}.btn{background:green;color:#fff;border:none}
+  .btn:hover{background:darkgreen}.hidden{display:none}
+  table{width:100%;border-collapse:collapse;margin-top:15px}
+  th,td{border:1px solid #ddd;padding:6px;text-align:center}
+</style>
+</head>
+<body>
+
+<div class="box" id="loginBox">
+  <h2>🔐 Login</h2>
+  <form id="loginForm">
+    <select id="role" required>
+      <option value="">-- Role --</option><option>admin</option><option>student</option>
+    </select>
+    <input id="username" placeholder="Username" required>
+    <input type="password" id="password" placeholder="Password" required>
+    <button class="btn">Login</button>
+  </form>
+</div>
+
+<div class="box hidden" id="adminBox">
+  <h2>📋 Admin Dashboard</h2>
+  <label>Date <input type="date" id="date" readonly></label>
+  <label>Time <input type="text" id="time" readonly></label><br>
+  <label>Roll
+    <select id="studentRoll">
+      <option value="">-- Roll --</option>
+      <script>for(let i=1;i<=30;i++)document.write(`<option>22E41A04${String(i).padStart(2,'0')}</option>`);</script>
+    </select>
+  </label>
+  <label>Status
+    <select id="status"><option>Present</option><option>Absent</option><option>Late</option></select>
+  </label>
+  <button id="markBtn" class="btn">Mark</button>
+
+  <table id="attendanceTable"><thead><tr><th>Date</th><th>Time</th><th>Roll</th><th>Status</th></tr></thead><tbody></tbody></table>
+
+  <button id="exportCSV" class="btn">Export CSV</button>
+  <button onclick="window.print()" class="btn">Print</button>
+  <button id="clearAll" style="background:orange;color:#fff">Clear</button>
+  <button id="logoutAdmin" style="background:red;color:#fff">Logout</button>
+</div>
+
+<div class="box hidden" id="studentBox">
+  <h2>👩‍🎓 Student Dashboard</h2>
+  <div id="studentAttendance"></div>
+  <button id="logoutStudent" style="background:red;color:#fff">Logout</button>
+</div>
+
+<script>
+const loginBox=document.getElementById("loginBox"),adminBox=document.getElementById("adminBox"),
+studentBox=document.getElementById("studentBox"),tableBody=document.querySelector("#attendanceTable tbody");
+
+function updateDT(){let n=new Date();date.value=n.toISOString().split("T")[0];time.value=n.toLocaleTimeString()}
+setInterval(updateDT,1000);updateDT();
+
+loginForm.onsubmit=e=>{
+  e.preventDefault();let r=role.value,u=username.value,p=password.value;
+  if(r=="admin"&&u=="admin"&&p=="1234")show("admin");else if(r=="student"&&u=="student"&&p=="1111")show("student");else alert("❌ Invalid");
+};
+
+function show(who){loginBox.classList.add("hidden");who=="admin"?(adminBox.classList.remove("hidden"),load()):(studentBox.classList.remove("hidden"),studentView());}
+
+markBtn.onclick=()=>{
+  if(!studentRoll.value)return alert("Pick roll!");
+  let d=JSON.parse(localStorage.attendance||"[]");
+  if(d.some(r=>r.roll==studentRoll.value))return alert("⚠️ Already marked");
+  d.push({date:date.value,time:time.value,roll:studentRoll.value,status:status.value});
+  localStorage.attendance=JSON.stringify(d);load();
+};
+
+function load(){tableBody.innerHTML="";(JSON.parse(localStorage.attendance||"[]")).forEach(r=>tableBody.innerHTML+=`<tr><td>${r.date}</td><td>${r.time}</td><td>${r.roll}</td><td>${r.status}</td></tr>`);}
+function studentView(){let d=JSON.parse(localStorage.attendance||"[]"),s=0;d.forEach(r=>{if(r.status=="Present")s++;else if(r.status=="Absent")s-=3});studentAttendance.innerHTML=`<h3>Your Attendance: ${Math.max(s,0)}%</h3>`;}
+
+exportCSV.onclick=()=>{let d=JSON.parse(localStorage.attendance||"[]");if(!d.length)return alert("No data");let csv="Date,Time,Roll,Status\n"+d.map(r=>`${r.date},${r.time},${r.roll},${r.status}`).join("\n");let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="attendance.csv";a.click();}
+clearAll.onclick=()=>{if(confirm("⚠️ Clear all?"))localStorage.removeItem("attendance"),load();}
+logoutAdmin.onclick=()=>{adminBox.classList.add("hidden"),loginBox.classList.remove("hidden")}
+logoutStudent.onclick=()=>{studentBox.classList.add("hidden"),loginBox.classList.remove("hidden")}
+</script>
+</body>
+</html>

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance System</title>
+<style>
+  body { font-family: Arial; background:#f4f4f4; margin:0; padding:0; }
+  .container { max-width:900px; margin:20px auto; padding:20px; background:#fff; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.2); }
+  h2 { text-align:center; }
+  input, select, button { padding:10px; margin:6px 0; border-radius:5px; border:1px solid #ccc; }
+  button { cursor:pointer; }
+  .btn { background:green; color:white; border:none; }
+  .btn:hover { background:darkgreen; }
+  .hidden { display:none; }
+  .row { display:flex; gap:20px; flex-wrap:wrap; }
+  table { width:100%; border-collapse:collapse; margin-top:20px; }
+  th, td { border:1px solid #ddd; padding:8px; text-align:center; }
+  .actions { margin-top:15px; display:flex; gap:10px; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- 🔐 LOGIN BOX -->
+  <div id="loginBox">
+    <h2>🔐 Login</h2>
+    <form id="loginForm">
+      <label for="role">Select Role</label>
+      <select id="role" required>
+        <option value="">-- Select --</option>
+        <option value="admin">Admin</option>
+        <option value="student">Student</option>
+      </select>
+      <input type="text" id="username" placeholder="Enter Username" required>
+      <input type="password" id="password" placeholder="Enter Password" required>
+      <button type="submit" class="btn">Login</button>
+    </form>
+  </div>
+
+  <!-- 🧑‍💼 ADMIN DASHBOARD -->
+  <div id="adminBox" class="hidden">
+    <h2>📋 Admin Attendance Dashboard</h2>
+    
+    <div class="row">
+      <div>
+        <label>Date</label><br>
+        <input type="date" id="date" readonly>
+      </div>
+      <div>
+        <label>Time (Real-Time)</label><br>
+        <input type="text" id="time" readonly>
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Student Roll Number</label><br>
+        <select id="studentRoll">
+          <option value="">-- Select Roll --</option>
+          <script>
+            for(let i=1;i<=30;i++){
+              let num = i.toString().padStart(2,'0');
+              document.write(`<option value="22E41A04${num}">22E41A04${num}</option>`);
+            }
+          </script>
+        </select>
+      </div>
+      <div>
+        <label>Status</label><br>
+        <select id="status">
+          <option value="Present">Present</option>
+          <option value="Absent">Absent</option>
+          <option value="Late">Late</option>
+        </select>
+      </div>
+    </div>
+
+    <button id="markBtn" class="btn">Mark / Update</button>
+
+    <table id="attendanceTable">
+      <thead>
+        <tr><th>Date</th><th>Time</th><th>Roll</th><th>Status</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div class="actions">
+      <button id="exportCSV" class="btn">Export CSV</button>
+      <button onclick="window.print()" class="btn">Print</button>
+      <!-- Admin-only Clear Data -->
+      <button id="clearAll" style="background:orange; color:white;">Clear All Data</button>
+      <button id="logoutAdmin" style="background:red; color:white;">Logout</button>
+    </div>
+  </div>
+
+  <!-- 👩‍🎓 STUDENT DASHBOARD -->
+  <div id="studentBox" class="hidden">
+    <h2>👩‍🎓 Student Dashboard</h2>
+    <div id="studentAttendance"></div>
+    <button id="logoutStudent" style="background:red; color:white;">Logout</button>
+  </div>
+
+</div>
+
+<script>
+const loginBox = document.getElementById("loginBox");
+const adminBox = document.getElementById("adminBox");
+const studentBox = document.getElementById("studentBox");
+const tableBody = document.querySelector("#attendanceTable tbody");
+
+function updateDateTime() {
+  let now = new Date();
+  document.getElementById("date").value = now.toISOString().split("T")[0];
+  document.getElementById("time").value = now.toLocaleTimeString();
+}
+setInterval(updateDateTime,1000);
+updateDateTime();
+
+// Login form
+document.getElementById("loginForm").addEventListener("submit", function(e){
+  e.preventDefault();
+  const role = document.getElementById("role").value;
+  const user = document.getElementById("username").value;
+  const pass = document.getElementById("password").value;
+
+  if(role==="admin" && user==="admin" && pass==="1234") {
+    localStorage.setItem("isLoggedIn","admin");
+    showAdmin();
+  }
+  else if(role==="student" && user==="student" && pass==="1111") {
+    localStorage.setItem("isLoggedIn","student");
+    showStudent();
+  }
+  else alert("❌ Invalid credentials!");
+});
+
+function showAdmin() {
+  loginBox.classList.add("hidden");
+  studentBox.classList.add("hidden");
+  adminBox.classList.remove("hidden");
+  loadAttendance();
+}
+
+function showStudent() {
+  loginBox.classList.add("hidden");
+  adminBox.classList.add("hidden");
+  studentBox.classList.remove("hidden");
+  showStudentAttendance();
+}
+
+// Attendance logic
+document.getElementById("markBtn").addEventListener("click", ()=>{
+  const date = document.getElementById("date").value;
+  const time = document.getElementById("time").value;
+  const roll = document.getElementById("studentRoll").value;
+  const status = document.getElementById("status").value;
+
+  if(!roll) return alert("Select student roll number!");
+  let data = JSON.parse(localStorage.getItem("attendance")||"[]");
+
+  if(data.length>=30) return alert("⚠️ Attendance is limited to 30 students!");
+  if(data.some(r=>r.roll===roll)) return alert("⚠️ This roll number is already marked!");
+
+  data.push({date,time,roll,status});
+  localStorage.setItem("attendance",JSON.stringify(data));
+  loadAttendance();
+});
+
+function loadAttendance() {
+  tableBody.innerHTML="";
+  let data = JSON.parse(localStorage.getItem("attendance")||"[]");
+  data.forEach(r=>{
+    tableBody.innerHTML+=`<tr><td>${r.date}</td><td>${r.time}</td><td>${r.roll}</td><td>${r.status}</td></tr>`;
+  });
+}
+
+function showStudentAttendance(){
+  let data = JSON.parse(localStorage.getItem("attendance")||"[]");
+  let score=0;
+  data.forEach(r=>{if(r.status==="Present") score++; if(r.status==="Absent") score-=3;});
+  if(score<0) score=0;
+  document.getElementById("studentAttendance").innerHTML=`<h3>Your Attendance: ${score}%</h3>`;
+}
+
+// Export CSV
+document.getElementById("exportCSV").addEventListener("click", ()=>{
+  let data = JSON.parse(localStorage.getItem("attendance")||"[]");
+  if(!data.length) return alert("No records found!");
+  let csv="Date,Time,Roll,Status\n"+data.map(r=>`${r.date},${r.time},${r.roll},${r.status}`).join("\n");
+  let blob=new Blob([csv],{type:"text/csv"});
+  let link=document.createElement("a");
+  link.href=URL.createObjectURL(blob);
+  link.download="attendance.csv";
+  link.click();
+});
+
+// Admin-only Clear Attendance
+document.getElementById("clearAll").addEventListener("click", ()=>{
+  const role = localStorage.getItem("isLoggedIn");
+  if(role !== "admin"){ // Only admin can clear
+    alert("❌ Only admin can clear attendance!");
+    return;
+  }
+  if(confirm("⚠️ Are you sure you want to clear all attendance data?")){
+    localStorage.removeItem("attendance");
+    loadAttendance();
+    alert("✅ Attendance cleared by admin!");
+  }
+});
+
+// Logout
+document.getElementById("logoutAdmin").addEventListener("click", ()=>{
+  localStorage.removeItem("isLoggedIn");
+  adminBox.classList.add("hidden");
+  loginBox.classList.remove("hidden");
+});
+document.getElementById("logoutStudent").addEventListener("click", ()=>{
+  localStorage.removeItem("isLoggedIn");
+  studentBox.classList.add("hidden");
+  loginBox.classList.remove("hidden");
+});
+</script>
+
+</body>
+</html>
